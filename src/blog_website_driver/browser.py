@@ -1,6 +1,6 @@
 from playwright.sync_api import Browser, Playwright
 
-from config import BrowserConfig
+from .config import BrowserConfig
 
 
 def create_browser(

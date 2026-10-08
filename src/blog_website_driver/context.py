@@ -1,6 +1,6 @@
 from playwright.sync_api import Browser, BrowserContext
 
-from config import ContextConfig
+from .config import ContextConfig
 
 
 def create_context(
