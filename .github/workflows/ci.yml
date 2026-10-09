@@ -1,77 +1,90 @@
----
 name: Release
+
 on:
   push:
     tags:
-      - v*
+      - 'v*'
+
 permissions:
   contents: read
+
 jobs:
   release:
     name: Build and publish package
     runs-on: ubuntu-latest
-steps:
-  - name: Checkout repository
-    uses: actions/checkout@v5
-  - name: Install Python
-    uses: actions/setup-python@v6
-    with:
-      python-version: "3.13"
-  - name: Install uv
-    uses: astral-sh/setup-uv@v7
-  - name: Install dependencies
-    run: uv sync --locked
-  - name: Check linting
-    run: uv run ruff check .
-  - name: Check formatting
-    run: uv run ruff format --check .
-  - name: Check types
-    run: uv run ty check
-  - name: Verify tag matches package version
-    shell: bash
-    run: >
-      TAG_VERSION="${GITHUB_REF_NAME#v}"
 
-      PACKAGE_VERSION="$(uv version --short)"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
-      if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
-        echo "Tag version ($TAG_VERSION) does not match package version ($PACKAGE_VERSION)"
-        exit 1
-      fi
-  - name: Build package
-    run: uv build
-  - name: Configure SSH
-    env:
-      SSH_PRIVATE_KEY: ${{ secrets.NEXUS_SSH_PRIVATE_KEY }}
-      SSH_KNOWN_HOSTS: ${{ secrets.NEXUS_SSH_KNOWN_HOSTS }}
-    shell: bash
-    run: |
-      set -euo pipefail
-      mkdir -p "$HOME/.ssh"
-      chmod 700 "$HOME/.ssh"
-      printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/nexus_deploy"
-      chmod 600 "$HOME/.ssh/nexus_deploy"
-      printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
-      chmod 600 "$HOME/.ssh/known_hosts"
-  - name: Open SSH tunnel
-    shell: bash
-    run: |
-      set -euo pipefail
-      ssh -f -N \
-        -i "$HOME/.ssh/nexus_deploy" \
-        -o IdentitiesOnly=yes \
-        -o StrictHostKeyChecking=yes \
-        -o ExitOnForwardFailure=yes \
-        -o BatchMode=yes \
-        -L 8081:127.0.0.1:8081 \
-        opc@129.159.223.92
-  - name: Publish package to Nexus
-    env:
-      TWINE_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-      TWINE_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
-    shell: bash
-    run: |
-      set -euo pipefail
-      uv tool run --from twine twine upload \
-        --repository-url http://127.0.0.1:8081/repository/python-internal/ \
-        dist/*
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Check linting
+        run: uv run ruff check .
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Check types
+        run: uv run ty check
+
+      - name: Verify tag matches package version
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PACKAGE_VERSION="$(uv version --short)"
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match package version ($PACKAGE_VERSION)"
+            exit 1
+          fi
+
+      - name: Build package
+        run: uv build
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.NEXUS_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.NEXUS_SSH_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/nexus_deploy"
+          chmod 600 "$HOME/.ssh/nexus_deploy"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Open SSH tunnel
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -f -N \
+            -i "$HOME/.ssh/nexus_deploy" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ExitOnForwardFailure=yes \
+            -o BatchMode=yes \
+            -L 8081:127.0.0.1:8081 \
+            opc@129.159.223.92
+
+      - name: Publish package to Nexus
+        env:
+          TWINE_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv tool run --from twine twine upload \
+            --repository-url http://127.0.0.1:8081/repository/python-internal/ \
+            dist/*
