@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2] - 2026-10-10
+
+### Added
+
+- third version
+
+
 ## [0.1.1] - 2026-10-10
 
 ### Added
